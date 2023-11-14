@@ -81,8 +81,7 @@ def compute_error_single(data):
 
 
 class NeuronLayer:
-    def __init__(self, previous_layer_neuron_amount, current_layer_neurons_amount, activation_function, lower_weight,
-                 upper_weight):
+    def __init__(self, previous_layer_neuron_amount, current_layer_neurons_amount, activation_function, lower_weight, upper_weight):
         self.excitement = None
         self.output = None
         self.activation_function = activation_function
@@ -114,44 +113,25 @@ class NeuronLayer:
 
 class MultiPerceptron:
 
-    def __init__(self, num_entry_neurons, num_hidden_layers, neurons_per_layer, num_output_neurons, activation_function,
-                 derivative_activation_function, learning_constant, beta):
+    def __init__(self, layer_configuration, activation_function, derivative_activation_function, learning_constant, beta):
 
-        if num_hidden_layers <= 0 or neurons_per_layer <= 0:
-            raise ValueError("There must be at least 1 intermediary layer and 1 neuron per layer.")
-
-        self.layers: [NeuronLayer] = []
-
-        # Caclculamos el rango de valores iniciales para los weights
-        upper_weight = math.log(1 / 0.98 - 1) / (-2 * beta)
-        lower_weight = - upper_weight
-
-        activation_function = np.vectorize(partial(activation_function, beta))
-        self.activation_function = activation_function
-
-        # Creamos la primera capa
-        self.layers.append(
-            NeuronLayer(num_entry_neurons, num_entry_neurons, activation_function, lower_weight, upper_weight))
-
-        # Creamos la primera capa interna
-        self.layers.append(
-            NeuronLayer(num_entry_neurons, neurons_per_layer, activation_function, lower_weight, upper_weight))
-
-        # Creamos el resto de las capas interna
-        for i in range(num_hidden_layers - 1):
-            self.layers.append(
-                NeuronLayer(neurons_per_layer, neurons_per_layer, activation_function, lower_weight, upper_weight))
-
-        # Creamos la ultima capa
-        self.layers.append(
-            NeuronLayer(neurons_per_layer, num_output_neurons, activation_function, lower_weight, upper_weight))
-
+        self.activation_function = np.vectorize(partial(activation_function, beta))
         self.derivative_activation_function = np.vectorize(partial(derivative_activation_function, beta))
+
         self.learning_constant = learning_constant
         self.input = None
 
         # Variables usadas en compute_error_parallel
         self.error_calc_items = None
+
+        # Caclculamos el rango de valores iniciales para los weights
+        upper_weight = math.log(1 / 0.98 - 1) / (-2 * beta)
+        lower_weight = - upper_weight
+
+        self.layers: [NeuronLayer] = []
+        for i in range(len(layer_configuration)):
+            prev = max(0, i-1)      # Caso: primera capa que no podes tener prev = -1
+            self.layers.append(NeuronLayer(layer_configuration[prev], layer_configuration[i], self.activation_function, lower_weight, upper_weight))
 
     def forward_propagation(self, input_data):
         current = input_data
