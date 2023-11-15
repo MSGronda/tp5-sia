@@ -31,12 +31,12 @@ def theta_logistic(beta, x):
     if x < 0 and x * beta < MAX_XB:
         return 0        # 1/inf = 0
 
-    # TODO: check si es seguro hacer esto
-    # Eficiencia: evitamos hacer el calculo si ya sabemos que tiende a 0 o 1
-    if x > MAX_X_RANGE / (-2 * beta):
-        return 0.999
-    elif x < MAX_X_RANGE / (2 * beta):
-        return 0.001
+    # # TODO: check si es seguro hacer esto
+    # # Eficiencia: evitamos hacer el calculo si ya sabemos que tiende a 0 o 1
+    # if x > MAX_X_RANGE / (-2 * beta):
+    #     return 0.999
+    # elif x < MAX_X_RANGE / (2 * beta):
+    #     return 0.001
 
     return 1 / (1 + math.exp(-2 * x * beta))
 
@@ -55,7 +55,6 @@ def convert_data(data_input, data_output):
 
     return np.array(new_input), np.array(new_output)
 
-
 def compute_error_single(data):
 
     # Esta funcion combina los metodos compute_error de MultiPerceptron y
@@ -70,6 +69,16 @@ def compute_error_single(data):
 
     return np.power(expected_output - current, 2)
 
+def check_valid(output, expected_output):
+    incorrect_pixels = 0
+    for i in range(len(output)):
+        val = output[i]
+
+        if round(val) != expected_output[i]:
+            incorrect_pixels += 1
+
+    return True if incorrect_pixels <= 1 else False
+
 
 class NeuronLayer:
     def __init__(self,
@@ -79,11 +88,11 @@ class NeuronLayer:
                  activation_function_derivative,
                  lower_weight,
                  upper_weight,
-                 alpha = 0.001,
-                 beta1 = 0.9,
-                 beta2 = 0.999,
-                 epsilon = 0.000000001
-         ):
+                 alpha=0.001,
+                 beta1=0.9,
+                 beta2=0.999,
+                 epsilon=1e-8):
+
         self.excitement = None
         self.output = None
         self.output_derivative = None
@@ -100,14 +109,15 @@ class NeuronLayer:
 
         self.prev_delta = 0
 
+        # Variables para optimizacion ADAM
         self.alpha = alpha
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
 
+        self.m_t = np.zeros([current_layer_neurons_amount, previous_layer_neuron_amount])
+        self.v_t = np.zeros([current_layer_neurons_amount, previous_layer_neuron_amount])
         self.t = 0
-        self.m_t = 0
-        self.v_t = 0
 
     def compute_activation(self, prev_input):
 
@@ -119,24 +129,21 @@ class NeuronLayer:
 
         return self.output  # Se ejecuta la funcion sobre cada elemento del arreglo
 
-    def update_weights(self, delta_w, alpha):
-        new_delta = delta_w + alpha * self.prev_delta
+    def update_weights(self, delta_w):
+        new_delta = delta_w + self.alpha * self.prev_delta
         self.weights += new_delta
         self.prev_delta = new_delta
 
-    def update_weights_adam(self, delta_w, error):
+    def update_weights_adam(self, delta_w):
         self.t += 1
 
-        gt = self.output_derivative * error
-
-        self.m_t = self.beta1 * self.m_t + (1 - self.beta1) * gt
-        self.v_t = self.beta2 * self.v_t + (1 - self.beta2) * np.power(gt, 2)
+        self.m_t = self.beta1 * self.m_t + (1 - self.beta1) * copy.copy(delta_w)
+        self.v_t = self.beta2 * self.v_t + (1 - self.beta2) * np.power(copy.copy(delta_w), 2)
 
         final_m_t = self.m_t / (1 - self.beta1 ** self.t)
         final_v_t = self.v_t / (1 - self.beta2 ** self.t)
 
-        self.weights = self.weights - self.alpha * final_m_t / (np.sqrt(final_v_t) + self.epsilon)
-
+        self.weights += self.alpha * final_m_t / (np.sqrt(final_v_t) + self.epsilon)
 
 
 class MultiPerceptron:
@@ -153,13 +160,13 @@ class MultiPerceptron:
         self.error_calc_items = None
 
         # Caclculamos el rango de valores iniciales para los weights
-        upper_weight = math.log(1 / 0.98 - 1) / (-2 * beta)
+        upper_weight = 1
         lower_weight = - upper_weight
 
         self.layers: [NeuronLayer] = []
         for i in range(len(layer_configuration)):
             prev = max(0, i-1)      # Caso: primera capa que no podes tener prev = -1
-            self.layers.append(NeuronLayer(layer_configuration[prev], layer_configuration[i], self.activation_function, lower_weight, upper_weight))
+            self.layers.append(NeuronLayer(layer_configuration[prev], layer_configuration[i], self.activation_function, self.derivative_activation_function,  lower_weight, upper_weight))
 
     def forward_propagation(self, input_data):
         current = input_data
@@ -169,23 +176,17 @@ class MultiPerceptron:
 
         return current
 
-    def update_all_weights(self, delta_w, alpha):  # [matriz1,matriz2,matriz3]
+    def update_all_weights(self, delta_w):
         for idx, layer in enumerate(self.layers):
-            layer.update_weights(delta_w[idx], alpha)
+            layer.update_weights_adam(delta_w[idx])
 
     def compute_error(self, data_input, expected_outputs):
-
-        error_vector = []
-
+        error = 0
         for i, o in zip(data_input, expected_outputs):
             output_result = self.forward_propagation(i)
-            error_vector.append(np.power(o - output_result, 2))
+            error += sum(np.power(o - output_result, 2))
 
-        total = 0
-        for elem in error_vector:
-            total += sum(elem)
-
-        return 0.5 * total
+        return 0.5 * error
 
     def compute_error_parallel(self, data_input, expected_outputs):
 
@@ -239,63 +240,40 @@ class MultiPerceptron:
 
         return delta_w
 
-    def train(self, limit, alpha, input_data, expected_output):
+    def train(self, limit, input_data, expected_output):
         i = 0
         min_error = float("inf")
         while i < limit:
             # usamos todos los datos
-            for i, o in zip(input_data, expected_output):
+            for a, b in zip(input_data, expected_output):
+                result = self.forward_propagation(a)
 
-                result = self.forward_propagation(i)
-                delta_w = self.back_propagation(o, result)
-
-                # Actualizamos los pesos
-                self.update_all_weights(delta_w, alpha)
+                delta_w = self.back_propagation(b, result)
 
                 error = self.compute_error(input_data, expected_output)
+
+                self.update_all_weights(delta_w)
 
                 if error < min_error:
                     min_error = error
 
-            i += 1
+            if i % 50 == 0:
+                print(f"Error {i}: {min_error}")
 
+            i += 1
         return min_error
+
+    def test(self, input_data, expected_output):
+        for a, b in zip(input_data, expected_output):
+            result = self.forward_propagation(a)
+
+            if not check_valid(result, b):
+                print("Not passed!")
+            else:
+                print("Passed!")
 
     def get_weights(self):
         weights = []
         for layer in self.layers:
             weights.append(copy.deepcopy(layer.weights))
         return weights
-
-    def test(self, input_test_data, expected_output, epsilon=0.05):
-        true_positive = 0
-        true_negative = 0
-        false_positive = 0
-        false_negative = 0
-        for input_data, outputs in zip(input_test_data, expected_output):
-            results = self.forward_propagation(input_data)
-            for result, expected_output in zip(results, outputs):
-                if expected_output == 1:
-                    if math.fabs(expected_output - result) < epsilon:
-                        true_positive += 1
-                    else:
-                        false_negative += 1
-                else:
-                    if math.fabs(expected_output - result) < epsilon:
-                        true_negative += 1
-                    else:
-                        false_positive += 1
-
-        accuracy = (true_positive + true_negative) / (true_positive + true_negative + false_positive + false_negative)
-        precision = true_positive / (true_positive + false_positive)
-        recall = true_positive / (true_positive+false_negative)
-        f1_score = None
-        if precision + recall != 0:
-            f1_score = (2 * precision * recall) / (precision + recall)
-
-        return accuracy, precision, recall, f1_score
-
-    @staticmethod
-    def initialize_metrics(metrics):
-        metrics["error"] = []
-        metrics["iteration"] = 0
