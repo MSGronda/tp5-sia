@@ -5,13 +5,13 @@ from training_data.font import *
 if __name__ == "__main__":
 
     layer_config = [35, 20, 10, 2, 10, 20, 35]
-    learning_constant = 0.01
+    learning_constant = 0.02
     beta = 2
 
-    autoencoder = MultiPerceptron(layer_config, theta_logistic, theta_logistic_derivative, learning_constant, beta)
+    autoencoder = MultiPerceptron(layer_config, sigmoid, sigmoid_derivative, learning_constant, beta)
 
     t1 = time.time()
-    min_error = autoencoder.train(2000, fonts, fonts)
+    min_error = autoencoder.train(1000, fonts, fonts)
     t2 = time.time()
 
     print(min_error, t2-t1)

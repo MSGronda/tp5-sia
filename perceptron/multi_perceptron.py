@@ -10,40 +10,13 @@ import numpy as np
 import random
 
 
-# MAX_XB nos permite decidir si la funcion math.exp(-2 * x * beta) da overflow.
-# Resulta de resolver la inecuacion: math.exp(-2 * x * beta)  < MAX_FLOAT
-# No solo nos permite evitar el overflow, sino que tambien es mas eficiente dado
-# que en muchos casos evita hacer math.exp(...). Ej: para limit=100 pasa de 42 segundos
-# a 36 segundos.
-MAX_XB = math.floor(math.log(sys.float_info.max) / -2) + 2
-
-# MAX_X_RANGE permite evitar hacer el cálculo de math.exp(-2 * x * beta), en los
-# casos que sabemos que la respuesta va a dar o muy cercano a 1 o muy cercano a 0.
-# Resulta de resolver la ecuacion: 1 / (1 + math.exp(-2 * x * beta)) = 0.999
-# Tambien se usa que la funcion es impar.
-# Ej: para limit=100 pasa de 33.88 segundos a 28.74 segundos
-
-MAX_X_RANGE = math.log(1/0.999 - 1)
+def sigmoid(beta, x):
+    return 1 / (1 + np.exp(-2 * beta * x))
 
 
-def theta_logistic(beta, x):
-    # Evitamos el overflow
-    if x < 0 and x * beta < MAX_XB:
-        return 0        # 1/inf = 0
+def sigmoid_derivative(beta, x):
+    return (2 * beta * np.exp(-2 * beta * x))/(1 + np.exp(-2 * beta * x)) ** 2
 
-    # # TODO: check si es seguro hacer esto
-    # # Eficiencia: evitamos hacer el calculo si ya sabemos que tiende a 0 o 1
-    # if x > MAX_X_RANGE / (-2 * beta):
-    #     return 0.999
-    # elif x < MAX_X_RANGE / (2 * beta):
-    #     return 0.001
-
-    return 1 / (1 + math.exp(-2 * x * beta))
-
-
-def theta_logistic_derivative(beta, x):
-    theta_result = theta_logistic(beta, x)
-    return 2 * beta * theta_result * (1 - theta_result)
 
 def convert_data(data_input, data_output):
     new_input = []
@@ -54,6 +27,7 @@ def convert_data(data_input, data_output):
         new_output.append(np.array(o))
 
     return np.array(new_input), np.array(new_output)
+
 
 def compute_error_single(data):
 
@@ -68,6 +42,7 @@ def compute_error_single(data):
         current = activation_function(np.dot(weight, current))
 
     return np.power(expected_output - current, 2)
+
 
 def check_valid(output, expected_output):
     incorrect_pixels = 0
@@ -137,8 +112,8 @@ class NeuronLayer:
     def update_weights_adam(self, delta_w):
         self.t += 1
 
-        self.m_t = self.beta1 * self.m_t + (1 - self.beta1) * copy.copy(delta_w)
-        self.v_t = self.beta2 * self.v_t + (1 - self.beta2) * np.power(copy.copy(delta_w), 2)
+        self.m_t = self.beta1 * self.m_t + (1 - self.beta1) * delta_w
+        self.v_t = self.beta2 * self.v_t + (1 - self.beta2) * np.power(delta_w, 2)
 
         final_m_t = self.m_t / (1 - self.beta1 ** self.t)
         final_v_t = self.v_t / (1 - self.beta2 ** self.t)
@@ -150,8 +125,8 @@ class MultiPerceptron:
 
     def __init__(self, layer_configuration, activation_function, derivative_activation_function, learning_constant, beta):
 
-        self.activation_function = np.vectorize(partial(activation_function, beta))
-        self.derivative_activation_function = np.vectorize(partial(derivative_activation_function, beta))
+        self.activation_function = partial(activation_function, beta)
+        self.derivative_activation_function = partial(derivative_activation_function, beta)
 
         self.learning_constant = learning_constant
         self.input = None
