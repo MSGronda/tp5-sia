@@ -45,15 +45,6 @@ def theta_logistic_derivative(beta, x):
     theta_result = theta_logistic(beta, x)
     return 2 * beta * theta_result * (1 - theta_result)
 
-
-def update_delta_w(delta_w, delta_w_matrix):
-    if delta_w is None:
-        delta_w = delta_w_matrix
-    else:
-        delta_w += delta_w_matrix
-    return delta_w
-
-
 def convert_data(data_input, data_output):
     new_input = []
     new_output = []
@@ -81,10 +72,23 @@ def compute_error_single(data):
 
 
 class NeuronLayer:
-    def __init__(self, previous_layer_neuron_amount, current_layer_neurons_amount, activation_function, lower_weight, upper_weight):
+    def __init__(self,
+                 previous_layer_neuron_amount,
+                 current_layer_neurons_amount,
+                 activation_function,
+                 activation_function_derivative,
+                 lower_weight,
+                 upper_weight,
+                 alpha = 0.001,
+                 beta1 = 0.9,
+                 beta2 = 0.999,
+                 epsilon = 0.000000001
+         ):
         self.excitement = None
         self.output = None
+        self.output_derivative = None
         self.activation_function = activation_function
+        self.activation_function_derivative = activation_function_derivative
 
         # Se genera una matrix de (current_layer_neurons_amount x previous_layer_neuron_amount)
         weights = []
@@ -96,12 +100,22 @@ class NeuronLayer:
 
         self.prev_delta = 0
 
+        self.alpha = alpha
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.epsilon = epsilon
+
+        self.t = 0
+        self.m_t = 0
+        self.v_t = 0
+
     def compute_activation(self, prev_input):
 
         # guardamos el dot producto dado que lo vamos a usar aca y en el backpropagation
         self.excitement = np.dot(self.weights, prev_input)
 
         self.output = self.activation_function(self.excitement)
+        self.output_derivative = self.activation_function_derivative(self.excitement)
 
         return self.output  # Se ejecuta la funcion sobre cada elemento del arreglo
 
@@ -109,6 +123,20 @@ class NeuronLayer:
         new_delta = delta_w + alpha * self.prev_delta
         self.weights += new_delta
         self.prev_delta = new_delta
+
+    def update_weights_adam(self, delta_w, error):
+        self.t += 1
+
+        gt = self.output_derivative * error
+
+        self.m_t = self.beta1 * self.m_t + (1 - self.beta1) * gt
+        self.v_t = self.beta2 * self.v_t + (1 - self.beta2) * np.power(gt, 2)
+
+        final_m_t = self.m_t / (1 - self.beta1 ** self.t)
+        final_v_t = self.v_t / (1 - self.beta2 ** self.t)
+
+        self.weights = self.weights - self.alpha * final_m_t / (np.sqrt(final_v_t) + self.epsilon)
+
 
 
 class MultiPerceptron:
@@ -194,82 +222,44 @@ class MultiPerceptron:
         delta_w = []
 
         # Calculamos el delta W de la capa de salida
-        prev_delta = (expected_output - generated_output) * self.derivative_activation_function(
-            self.layers[-1].excitement)
-        delta_w.append(
-            self.learning_constant * prev_delta.reshape(-1, 1) @ np.transpose(self.layers[-2].output.reshape(-1, 1)))
+        prev_delta = (expected_output - generated_output) * self.derivative_activation_function(self.layers[-1].excitement)
+        delta_w.append(self.learning_constant * prev_delta.reshape(-1, 1) @ np.transpose(self.layers[-2].output.reshape(-1, 1)))
 
         # Calculamos el delta W de las capas ocultas
         for idx in range(len(self.layers) - 2, 0, -1):
-            delta = np.dot(prev_delta, self.layers[idx + 1].weights) * self.derivative_activation_function(
-                self.layers[idx].excitement)
-            delta_w.append(self.learning_constant * delta.reshape(-1, 1) @ np.transpose(
-                self.layers[idx - 1].output.reshape(-1, 1)))
+            delta = np.dot(prev_delta, self.layers[idx + 1].weights) * self.derivative_activation_function(self.layers[idx].excitement)
+            delta_w.append(self.learning_constant * delta.reshape(-1, 1) @ np.transpose(self.layers[idx - 1].output.reshape(-1, 1)))
             prev_delta = delta
 
         # Calculamos el delta W de la capa inicial
-        delta = np.dot(prev_delta, self.layers[1].weights) * self.derivative_activation_function(
-            self.layers[0].excitement)
+        delta = np.dot(prev_delta, self.layers[1].weights) * self.derivative_activation_function(self.layers[0].excitement)
         delta_w.append(self.learning_constant * delta.reshape(-1, 1) @ np.transpose(self.input.reshape(-1, 1)))
 
         delta_w.reverse()
 
         return delta_w
 
-    def train(self, epsilon, limit, alpha, input_data, expected_output, collect_metrics, batch_rate=1):
-        size = len(input_data)
-        if size < batch_rate:
-            raise ValueError("Batch size is greater than size of input.")
-
+    def train(self, limit, alpha, input_data, expected_output):
         i = 0
-        error = None
-        w_min = None
         min_error = float("inf")
-        metrics = {}
-        self.initialize_metrics(metrics)
-
-        # Convertimos los datos de entrada a Numpy Array (asi no lo tenemos que hacer mientras procesamos)
-        converted_input, converted_output = convert_data(input_data, expected_output)
-
-        while min_error > epsilon and i < limit:
-
-            delta_w = None # delta_w de todas las neuronas del sistema
-
+        while i < limit:
             # usamos todos los datos
-            if batch_rate == size:
-                for i, o in zip(converted_input, converted_output):
+            for i, o in zip(input_data, expected_output):
 
-                    result = self.forward_propagation(i)
-                    delta_w_matrix = self.back_propagation(o, result)
+                result = self.forward_propagation(i)
+                delta_w = self.back_propagation(o, result)
 
-                    delta_w = update_delta_w(delta_w, delta_w_matrix)
+                # Actualizamos los pesos
+                self.update_all_weights(delta_w, alpha)
 
-            # usamos un subconjunto
-            else:
-                for _ in range(batch_rate):
-                    number = random.randint(0, size - 1)
+                error = self.compute_error(input_data, expected_output)
 
-                    result = self.forward_propagation(converted_input[number])
-                    delta_w_matrix = self.back_propagation(converted_output[number], result)
+                if error < min_error:
+                    min_error = error
 
-                    delta_w = update_delta_w(delta_w, delta_w_matrix)
-
-            # Actualizamos los pesos
-            self.update_all_weights(delta_w, alpha)
-
-            # Calculamos el error de la red neuronal
-            if len(converted_input) < 1000:
-                error = self.compute_error(converted_input, converted_output)
-            else:
-                error = self.compute_error_parallel(converted_input, converted_output)
-
-            if error < min_error:
-                min_error = error
-                w_min = self.get_weights()
             i += 1
-            collect_metrics(metrics, error, i)
 
-        return error, w_min, metrics
+        return min_error
 
     def get_weights(self):
         weights = []
