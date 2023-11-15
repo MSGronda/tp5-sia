@@ -1,32 +1,12 @@
 import copy
-import math
-import sys
-import time
 from functools import partial
-from multiprocessing import Pool
 from multiprocessing.pool import ThreadPool
+from typing import Type
 
 import numpy as np
 import random
 
-
-def sigmoid(beta, x):
-    return 1 / (1 + np.exp(-2 * beta * x))
-
-
-def sigmoid_derivative(beta, x):
-    return (2 * beta * np.exp(-2 * beta * x))/(1 + np.exp(-2 * beta * x)) ** 2
-
-
-def convert_data(data_input, data_output):
-    new_input = []
-    new_output = []
-
-    for i, o in zip(data_input, data_output):
-        new_input.append(np.array(i))
-        new_output.append(np.array(o))
-
-    return np.array(new_input), np.array(new_output)
+from perceptron.optimizers import Optimizer
 
 
 def compute_error_single(data):
@@ -60,19 +40,16 @@ class NeuronLayer:
                  previous_layer_neuron_amount,
                  current_layer_neurons_amount,
                  activation_function,
-                 activation_function_derivative,
                  lower_weight,
                  upper_weight,
-                 alpha=0.001,
-                 beta1=0.9,
-                 beta2=0.999,
-                 epsilon=1e-8):
+                 optimizer: Optimizer
+                 ):
 
         self.excitement = None
         self.output = None
-        self.output_derivative = None
         self.activation_function = activation_function
-        self.activation_function_derivative = activation_function_derivative
+
+        self.optimizer = optimizer
 
         # Se genera una matrix de (current_layer_neurons_amount x previous_layer_neuron_amount)
         weights = []
@@ -82,17 +59,6 @@ class NeuronLayer:
                 weights[i].append(random.uniform(lower_weight, upper_weight))
         self.weights = np.array(weights)
 
-        self.prev_delta = 0
-
-        # Variables para optimizacion ADAM
-        self.alpha = alpha
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.epsilon = epsilon
-
-        self.m_t = np.zeros([current_layer_neurons_amount, previous_layer_neuron_amount])
-        self.v_t = np.zeros([current_layer_neurons_amount, previous_layer_neuron_amount])
-        self.t = 0
 
     def compute_activation(self, prev_input):
 
@@ -100,35 +66,26 @@ class NeuronLayer:
         self.excitement = np.dot(self.weights, prev_input)
 
         self.output = self.activation_function(self.excitement)
-        self.output_derivative = self.activation_function_derivative(self.excitement)
 
         return self.output  # Se ejecuta la funcion sobre cada elemento del arreglo
 
     def update_weights(self, delta_w):
-        new_delta = delta_w + self.alpha * self.prev_delta
-        self.weights += new_delta
-        self.prev_delta = new_delta
-
-    def update_weights_adam(self, delta_w):
-        self.t += 1
-
-        self.m_t = self.beta1 * self.m_t + (1 - self.beta1) * delta_w
-        self.v_t = self.beta2 * self.v_t + (1 - self.beta2) * np.power(delta_w, 2)
-
-        final_m_t = self.m_t / (1 - self.beta1 ** self.t)
-        final_v_t = self.v_t / (1 - self.beta2 ** self.t)
-
-        self.weights += self.alpha * final_m_t / (np.sqrt(final_v_t) + self.epsilon)
+        self.weights += self.optimizer.calc_delta_w(delta_w)
 
 
 class MultiPerceptron:
 
-    def __init__(self, layer_configuration, activation_function, derivative_activation_function, learning_constant, beta):
+    def __init__(self,
+                 layer_configuration,
+                 activation_function,
+                 derivative_activation_function,
+                 optimizer,
+                 optimizer_args
+                 ):
 
-        self.activation_function = partial(activation_function, beta)
-        self.derivative_activation_function = partial(derivative_activation_function, beta)
+        self.activation_function = activation_function
+        self.derivative_activation_function = derivative_activation_function
 
-        self.learning_constant = learning_constant
         self.input = None
 
         # Variables usadas en compute_error_parallel
@@ -140,8 +97,18 @@ class MultiPerceptron:
 
         self.layers: [NeuronLayer] = []
         for i in range(len(layer_configuration)):
+
             prev = max(0, i-1)      # Caso: primera capa que no podes tener prev = -1
-            self.layers.append(NeuronLayer(layer_configuration[prev], layer_configuration[i], self.activation_function, self.derivative_activation_function,  lower_weight, upper_weight))
+
+            # Generamos nueva capa con las dimensiones apropiadas
+            self.layers.append(NeuronLayer(
+                layer_configuration[prev],
+                layer_configuration[i],
+                self.activation_function,
+                lower_weight,
+                upper_weight,
+                optimizer(*optimizer_args)
+            ))
 
     def forward_propagation(self, input_data):
         current = input_data
@@ -153,7 +120,7 @@ class MultiPerceptron:
 
     def update_all_weights(self, delta_w):
         for idx, layer in enumerate(self.layers):
-            layer.update_weights_adam(delta_w[idx])
+            layer.update_weights(delta_w[idx])
 
     def compute_error(self, data_input, expected_outputs):
         error = 0
@@ -199,17 +166,17 @@ class MultiPerceptron:
 
         # Calculamos el delta W de la capa de salida
         prev_delta = (expected_output - generated_output) * self.derivative_activation_function(self.layers[-1].excitement)
-        delta_w.append(self.learning_constant * prev_delta.reshape(-1, 1) @ np.transpose(self.layers[-2].output.reshape(-1, 1)))
+        delta_w.append(prev_delta.reshape(-1, 1) @ np.transpose(self.layers[-2].output.reshape(-1, 1)))
 
         # Calculamos el delta W de las capas ocultas
         for idx in range(len(self.layers) - 2, 0, -1):
             delta = np.dot(prev_delta, self.layers[idx + 1].weights) * self.derivative_activation_function(self.layers[idx].excitement)
-            delta_w.append(self.learning_constant * delta.reshape(-1, 1) @ np.transpose(self.layers[idx - 1].output.reshape(-1, 1)))
+            delta_w.append(delta.reshape(-1, 1) @ np.transpose(self.layers[idx - 1].output.reshape(-1, 1)))
             prev_delta = delta
 
         # Calculamos el delta W de la capa inicial
         delta = np.dot(prev_delta, self.layers[1].weights) * self.derivative_activation_function(self.layers[0].excitement)
-        delta_w.append(self.learning_constant * delta.reshape(-1, 1) @ np.transpose(self.input.reshape(-1, 1)))
+        delta_w.append(delta.reshape(-1, 1) @ np.transpose(self.input.reshape(-1, 1)))
 
         delta_w.reverse()
 
