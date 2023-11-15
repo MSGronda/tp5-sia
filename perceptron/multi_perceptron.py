@@ -185,12 +185,16 @@ class MultiPerceptron:
     def train(self, limit, input_data, expected_output):
         i = 0
         min_error = float("inf")
+        choose_idx = np.arange(len(input_data))
         while i < limit:
-            # usamos todos los datos
-            for a, b in zip(input_data, expected_output):
-                result = self.forward_propagation(a)
+            np.random.shuffle(choose_idx)
 
-                delta_w = self.back_propagation(b, result)
+            # usamos todos los datos
+
+            for idx in choose_idx:
+                result = self.forward_propagation(input_data[idx])
+
+                delta_w = self.back_propagation(expected_output[idx], result)
 
                 error = self.compute_error(input_data, expected_output)
 
@@ -211,8 +215,19 @@ class MultiPerceptron:
 
             if not check_valid(result, b):
                 print("Not passed!")
+                print("Res:\t\tExp:")
+                i = 0
+                for elem in result:
+                    print(f"{round(elem)}", end=" ")
+                    i += 1
+                    if i % 5 == 0:
+                        print(f"\t", end="")
+                        for j in range(5):
+                            print(f"{round(a[j+i-5])}", end=" ")
+                        print("")
+                print("")
             else:
-                print("Passed!")
+                print("Passed!\n")
 
     def get_weights(self):
         weights = []
