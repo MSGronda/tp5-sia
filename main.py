@@ -1,13 +1,15 @@
 import random
 import time
 
-from perceptron.functions import sigmoid, sigmoid_derivative
+from perceptron.functions import *
 from perceptron.multi_perceptron import *
 from perceptron.optimizers import ADAM
 from training_data.font import *
 
 
 if __name__ == "__main__":
+
+
 
     random.seed(2)
     np.random.seed(2)

@@ -20,7 +20,7 @@ def bit_fliping_noise(vectorized_data,bits_to_flip_number : int):
         current_bit_idx = randint(0,len(vectorized_data) - 1)
         if current_bit_idx not in bits_seen:
             bits_seen.add(current_bit_idx)
-            vectorized_data[bits_seen] = 0 if vectorized_data[bits_seen] == 1 else 1
+            vectorized_data[current_bit_idx] = 0 if vectorized_data[current_bit_idx] == 1 else 1
             i += 1
 
 
