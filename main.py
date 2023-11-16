@@ -12,7 +12,7 @@ if __name__ == "__main__":
     random.seed(2)
     np.random.seed(2)
 
-    layer_config = [35, 25, 15, 7, 2, 7, 15, 25, 35]
+    layer_config = [35, 20,20, 20, 2, 20, 20,20, 35] 
     beta = 2
 
     optimizer = ADAM
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     autoencoder = MultiPerceptron(layer_config, partial(sigmoid, beta), partial(sigmoid_derivative, beta), optimizer, optimizer_args)
 
     t1 = time.time()
-    min_error = autoencoder.train(5000, fonts, fonts)
+    min_error = autoencoder.train(2000, fonts, fonts)
     t2 = time.time()
 
     print(min_error, t2-t1)
