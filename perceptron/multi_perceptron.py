@@ -35,6 +35,16 @@ def check_valid(output, expected_output):
     return True if incorrect_pixels <= 1 else False
 
 
+def add_delta_w(delta_w, inc_delta_w):
+    if delta_w is None:
+        delta_w = inc_delta_w
+    else:
+        for i in range(len(delta_w)):
+            delta_w[i] += inc_delta_w[i]
+
+    return delta_w
+
+
 class NeuronLayer:
     def __init__(self,
                  previous_layer_neuron_amount,
@@ -161,7 +171,7 @@ class MultiPerceptron:
 
         return 0.5 * total
 
-    def back_propagation(self, expected_output, generated_output) -> list:
+    def back_propagation(self, expected_output, generated_output):
         delta_w = []
 
         # Calculamos el delta W de la capa de salida
@@ -182,26 +192,35 @@ class MultiPerceptron:
 
         return delta_w
 
-    def train(self, limit, input_data, expected_output):
+    def train(self, limit, input_data, expected_output, batch_size):
         i = 0
         min_error = float("inf")
-        choose_idx = np.arange(len(input_data))
         while i < limit:
-            np.random.shuffle(choose_idx)
+            delta_w = None
 
-            # usamos todos los datos
+            # Usamos todos los datos
+            if batch_size == len(input_data):
+                for a, b in zip(input_data, expected_output):
+                    result = self.forward_propagation(a)
+                    inc = self.back_propagation(b, result)
 
-            for idx in choose_idx:
-                result = self.forward_propagation(input_data[idx])
+                    delta_w = add_delta_w(delta_w, inc)
 
-                delta_w = self.back_propagation(expected_output[idx], result)
+            # Usamos un subconjunto
+            else:
+                for _ in range(batch_size):
+                    idx = random.randint(0, len(input_data) - 1)
+                    result = self.forward_propagation(input_data[idx])
+                    inc = self.back_propagation(expected_output[idx], result)
 
-                error = self.compute_error(input_data, expected_output)
+                    delta_w = add_delta_w(delta_w, inc)
 
-                self.update_all_weights(delta_w)
+            self.update_all_weights(delta_w)
 
-                if error < min_error:
-                    min_error = error
+            error = self.compute_error(input_data, expected_output)
+
+            if error < min_error:
+                min_error = error
 
             if i % 50 == 0:
                 print(f"Error {i}: {min_error}")
