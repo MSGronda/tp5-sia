@@ -222,7 +222,7 @@ class MultiPerceptron:
             if error < min_error:
                 min_error = error
 
-            if i % 50 == 0:
+            if i % 100 == 0:
                 print(f"Error {i}: {min_error}")
 
             i += 1

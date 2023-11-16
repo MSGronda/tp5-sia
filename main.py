@@ -23,7 +23,7 @@ if __name__ == "__main__":
     autoencoder = MultiPerceptron(layer_config, partial(sigmoid, beta), partial(sigmoid_derivative, beta), optimizer, optimizer_args)
 
     t1 = time.time()
-    min_error = autoencoder.train(20000, fonts, fonts, batch_size)
+    min_error = autoencoder.train(40000, fonts, fonts, batch_size)
     t2 = time.time()
 
     print(min_error, t2-t1)
