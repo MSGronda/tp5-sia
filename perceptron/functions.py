@@ -12,7 +12,7 @@ def sigmoid_derivative(beta, x):
 
 
 #flipea n bits del vector de forma aleatoria
-def bit_fliping_noise(vectorized_data,bits_to_flip_number : int):
+def bit_fliping_with_n(vectorized_data,bits_to_flip_number : int):
 
     bits_seen = set()
     i = 0

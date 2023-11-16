@@ -30,12 +30,13 @@ if __name__ == "__main__":
     t2 = time.time()
     print(min_error, t2-t1)
 
-    flip_probability_min = config_json["probability_min"]
-    flip_probability_max = config_json["probability_max"]
-    step = config_json["step"]
 
 
     if config_json["strategy"] == "bit_flip_with_probability":
+        flip_probability_min = config_json["probability_min"]
+        flip_probability_max = config_json["probability_max"]
+        step = config_json["step"]
+
 
         with open("results_denoising.csv","w") as f:
             current_prob = flip_probability_min
@@ -51,5 +52,28 @@ if __name__ == "__main__":
                 print(f"{current_prob},{counter_match}",file=f)
 
                 current_prob += step
+    elif config_json["strategy"] == "bit_fliping_with_n":
+
+        min_n = config_json["n_min"]
+        max_n = config_json["n_max"]
+        if max_n > 30:
+            quit("Max n to high, max 30")
+
+
+        with open("results_denoising_n.csv","w") as f:
+           
+            current_n = min_n
+            while current_n <= max_n:
+
+                noised_fonts = copy.deepcopy(fonts)    
+
+                for vec in noised_fonts:
+                    bit_fliping_with_n(vec,current_n)
+
+
+                counter_match = autoencoder.test(noised_fonts, fonts)
+                print(f"{current_n},{counter_match}",file=f)
+
+                current_n += 1
     else:
         quit("Invalid noising strategy")
