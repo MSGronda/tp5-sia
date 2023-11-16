@@ -229,10 +229,12 @@ class MultiPerceptron:
         return min_error
 
     def test(self, input_data, expected_output):
+        counter = 0
         for a, b in zip(input_data, expected_output):
             result = self.forward_propagation(a)
 
             if not check_valid(result, b):
+                counter += 1
                 print("Not passed!")
                 print("Res:\t\tExp:")
                 i = 0
@@ -247,6 +249,7 @@ class MultiPerceptron:
                 print("")
             else:
                 print("Passed!\n")
+        return counter
 
     def get_weights(self):
         weights = []
