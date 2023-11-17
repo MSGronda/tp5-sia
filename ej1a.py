@@ -40,12 +40,14 @@ if __name__ == "__main__":
         optimizer_args
     )
 
+    batch_size = len(fonts) if config_json["batch_size"] == -1 else config_json["batch_size"]
+
     t1 = time.time()
     min_error = autoencoder.train(
         config_json["epochs"],
         fonts,
         fonts,
-        config_json["batch_size"]
+        batch_size
     )
     t2 = time.time()
 

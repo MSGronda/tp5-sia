@@ -9,7 +9,7 @@
         "epsilon": 1e-8
     },
     "activation_function_beta": 1,
-    "batch_size": 31,
+    "batch_size": -1,
     "epochs": 30000,
     "strategy": "bit_fliping_with_n",
     "probability_min": 0.00,
