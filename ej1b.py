@@ -3,7 +3,7 @@ import json
 from functools import partial
 from perceptron.functions import *
 from perceptron.multi_perceptron import *
-from perceptron.optimizers import ADAM
+from perceptron.optimizers import ADAM, Momentum
 from training_data.font import *
 
 if __name__ == "__main__":
@@ -11,17 +11,41 @@ if __name__ == "__main__":
     with open("ej1b_config.json", "r") as f:
         config_json = json.load(f)
 
-    random.seed(2)
-    np.random.seed(2)
-    layer_config = [35, 30, 30, 20, 20, 10, 2, 10, 20, 20, 30, 30, 35]
-    beta = 1
-    optimizer = ADAM
-    optimizer_args = [0.001, 0.9, 0.999, 1e-8]
-    batch_size = len(fonts)
-    autoencoder = MultiPerceptron(layer_config, partial(sigmoid, beta), partial(sigmoid_derivative, beta), optimizer,
-                                  optimizer_args)
+    if config_json["seed"] != -1:
+        random.seed(config_json["seed"])
+        np.random.seed(config_json["seed"])
+
+    if config_json["optimizer"]["type"] == "adam":
+        optimizer = ADAM
+        optimizer_args = [
+            config_json["optimizer"]["alpha"],
+            config_json["optimizer"]["beta1"],
+            config_json["optimizer"]["beta2"],
+            config_json["optimizer"]["epsilon"]
+        ]
+
+    elif config_json["optimizer"]["type"] == "momentum":
+        optimizer = Momentum
+        optimizer_args = [config_json["optimizer"]["learning_rate"]]
+
+    else:
+        quit("Invalid optimizer")
+
+    autoencoder = MultiPerceptron(
+        config_json["layer_config"],
+        partial(sigmoid, config_json["activation_function_beta"]),
+        partial(sigmoid_derivative, config_json["activation_function_beta"]),
+        optimizer,
+        optimizer_args
+    )
+
     t1 = time.time()
-    min_error = autoencoder.train(50000, fonts, fonts, batch_size)
+    min_error = autoencoder.train(
+        config_json["epochs"],
+        fonts,
+        fonts,
+        config_json["batch_size"]
+    )
     t2 = time.time()
     print(min_error, t2 - t1)
 
@@ -30,7 +54,7 @@ if __name__ == "__main__":
         flip_probability_max = config_json["probability_max"]
         step = config_json["step"]
 
-        with open("results_denoising.csv", "w") as f:
+        with open("results/results_denoising.csv", "w") as f:
             current_prob = flip_probability_min
             while current_prob <= flip_probability_max:
 
@@ -50,7 +74,7 @@ if __name__ == "__main__":
         if max_n > 30:
             quit("Max n to high, max 30")
 
-        with open("results_denoising_n.csv", "w") as f:
+        with open("results/results_denoising_n.csv", "w") as f:
 
             current_n = min_n
             while current_n <= max_n:
