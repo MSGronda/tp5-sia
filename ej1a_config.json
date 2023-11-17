@@ -1,0 +1,14 @@
+{
+  "seed": 2,
+  "layer_config": [35, 30, 20, 15, 10, 5, 2, 5, 10, 15, 20, 30, 35],
+  "optimizer": {
+      "type": "adam",
+      "alpha": 0.001,
+      "beta1": 0.9,
+      "beta2": 0.999,
+      "epsilon": 1e-8
+  },
+  "activation_function_beta": 1,
+  "batch_size": 31,
+  "epochs": 30000
+}

@@ -1,11 +1,7 @@
 import copy
-from functools import partial
 from multiprocessing.pool import ThreadPool
-from typing import Type
-
 import numpy as np
 import random
-
 from perceptron.optimizers import Optimizer
 
 
@@ -33,6 +29,16 @@ def check_valid(output, expected_output):
             incorrect_pixels += 1
 
     return True if incorrect_pixels <= 1 else False
+
+
+def count_error(output, expected_output):
+    incorrect_pixels = 0
+    for i in range(len(output)):
+        val = output[i]
+
+        if round(val) != expected_output[i]:
+            incorrect_pixels += 1
+    return incorrect_pixels
 
 
 def add_delta_w(delta_w, inc_delta_w):
@@ -222,20 +228,25 @@ class MultiPerceptron:
             if error < min_error:
                 min_error = error
 
-            if i % 100 == 0:
+            if i % 200 == 0:
                 print(f"Error {i}: {min_error}")
 
             i += 1
         return min_error
 
     def test(self, input_data, expected_output):
-        counter = 0
+        total_incorrect_pixels = 0
+        total_incorrect = 0
+
         for a, b in zip(input_data, expected_output):
             result = self.forward_propagation(a)
 
-            if not check_valid(result, b):
-                counter += 1
-                print("Not passed!")
+            incorrect = count_error(result, b)
+            total_incorrect_pixels += incorrect
+
+            if incorrect > 1:
+                total_incorrect += 1
+                print(f"\n> Not passed! {incorrect} pixels incorrect!")
                 print("Res:\t\tExp:")
                 i = 0
                 for elem in result:
@@ -248,8 +259,13 @@ class MultiPerceptron:
                         print("")
                 print("")
             else:
-                print("Passed!\n")
-        return counter
+                print(f"> Passed! {incorrect} pixels incorrect!")
+
+        print("\n- = - = - TESTS FINISHED - = - = -\n")
+        print(f"Total incorrect pixels: {total_incorrect_pixels}")
+        print(f"Success rate: { (len(input_data) - total_incorrect) / len(input_data)}")
+
+        return total_incorrect
 
     def get_weights(self):
         weights = []
