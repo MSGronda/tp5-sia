@@ -9,15 +9,20 @@ class Optimizer:
 
 
 class Momentum(Optimizer):
-    def __init__(self, learning_rate=0.8):
+    def __init__(self, learning_rate=0.1, alpha=0.8):
         # Variable para optimizacion Momentum
         self.learning_rate = learning_rate
+        self.alpha = alpha
         self.prev_delta = 0
 
     def calc_delta_w(self, delta_w):
-        new_delta = delta_w + self.learning_rate * self.prev_delta
+        new_delta = self.learning_rate * delta_w + self.alpha * self.prev_delta
         self.prev_delta = new_delta
         return new_delta
+
+    @staticmethod
+    def name():
+        return "Momentum"
 
 
 class ADAM(Optimizer):
@@ -43,4 +48,8 @@ class ADAM(Optimizer):
         final_v_t = self.v_t / (1 - self.beta2 ** self.t)
 
         return self.alpha * final_m_t / (np.sqrt(final_v_t) + self.epsilon)
+
+    @staticmethod
+    def name():
+        return "ADAM"
 
