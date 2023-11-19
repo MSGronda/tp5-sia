@@ -5,6 +5,8 @@ from perceptron.functions import *
 from perceptron.multi_perceptron import *
 from perceptron.optimizers import ADAM, Momentum
 from training_data.font import *
+from collections import defaultdict
+
 
 if __name__ == "__main__":
 
@@ -41,34 +43,51 @@ if __name__ == "__main__":
 
     batch_size = len(fonts) if config_json["batch_size"] == -1 else config_json["batch_size"]
 
-    t1 = time.time()
-    min_error = autoencoder.train(
-        config_json["epochs"],
-        fonts,
-        fonts,
-        batch_size
-    )
-    t2 = time.time()
-    print(min_error, t2 - t1)
 
     if config_json["strategy"] == "bit_flip_with_probability":
         flip_probability_min = config_json["probability_min"]
         flip_probability_max = config_json["probability_max"]
         step = config_json["step"]
 
-        with open("results/results_denoising.csv", "w") as f:
-            current_prob = flip_probability_min
-            while current_prob <= flip_probability_max:
 
-                noised_fonts = copy.deepcopy(fonts)
+        with open("results/results_denoising_average_n.csv", "w") as f:
 
-                for vec in noised_fonts:
-                    bit_fliping_with_probability(vec, current_prob)
+            dict_data = defaultdict(int)
 
-                counter_match = autoencoder.test(noised_fonts, fonts)
-                print(f"{current_prob},{counter_match}", file=f)
+            for i in range(10):
 
-                current_prob += step
+                t1 = time.time()
+                min_error = autoencoder.train(
+                    config_json["epochs"],
+                    fonts,
+                    fonts,
+                    batch_size
+                )
+                t2 = time.time()
+                print(min_error, t2 - t1)
+
+                print("STARTING ROUND ----------------------------------------------",i + 1)
+
+                current_prob = flip_probability_min
+                while current_prob <= flip_probability_max:
+
+                    noised_fonts = copy.deepcopy(fonts)
+
+                    for vec in noised_fonts:
+                        bit_fliping_with_probability(vec, current_prob)
+
+                    counter_match = autoencoder.test(noised_fonts, fonts)
+
+                    dict_data[current_prob] += counter_match
+
+
+                    current_prob += step
+            
+            print("Finished iteration",i)
+            for key in dict_data.keys():
+                print(f"{key:.2f},{dict_data[key] / 10:.2f}", file=f)
+
+
     elif config_json["strategy"] == "bit_fliping_with_n":
 
         min_n = config_json["n_min"]

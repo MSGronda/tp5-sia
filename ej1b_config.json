@@ -10,11 +10,11 @@
     },
     "activation_function_beta": 1,
     "batch_size": -1,
-    "epochs": 30000,
-    "strategy": "bit_fliping_with_n",
+    "epochs": 60000,
+    "strategy": "bit_flip_with_probability",
     "probability_min": 0.00,
     "probability_max": 0.26,
     "step":0.01,
     "n_min":0,
-    "n_max":10
+    "n_max":15
 }
