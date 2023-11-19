@@ -4,7 +4,7 @@ import numpy as np
 
 from perceptron.functions import sigmoid, sigmoid_derivative
 from perceptron.multi_perceptron import NeuronLayer
-from perceptron.optimizers import ADAM
+from perceptron.optimizers import ADAM, Optimizer
 from training_data.font import fonts
 
 
@@ -31,13 +31,18 @@ def count_error(output, expected_output):
 
 
 class SamplingLayer:
-    def __init__(self):
-        self.output = None
+    def compute_activation(self, prev_input):
+        self.mean, self.std = np.array_split(prev_input, 2)
 
-    def sampling(self, mean, std):
-        epsilon = np.random.randn(*mean.shape)
-        self.output = mean + std * epsilon
+        self.epsilon = np.random.standard_normal(int(prev_input.shape[0] / 2)).reshape(-1, 1)
+
+        # Z         = mu        + sigma * epsilon
+        self.output = self.mean + np.dot(self.std, self.epsilon)
+
+        self.excitement = np.concatenate((self.mean, self.std), axis=0)
+
         return self.output
+
 
 class VAE:
     def __init__(self,
@@ -58,8 +63,8 @@ class VAE:
         self.layers: [NeuronLayer] = []
 
         # = = = Generamos encoder = = =
-        for i in range(len(layer_configuration) - 1):
-            prev = max(0, i - 1)  # Caso: primera capa que no podes tener prev = -1
+        for i in range(1, len(layer_configuration) - 1):
+            prev = i - 1  # Caso: primera capa que no podes tener prev = -1
 
             # Generamos nueva capa con las dimensiones apropiadas
             self.layers.append(NeuronLayer(
@@ -74,35 +79,27 @@ class VAE:
         #  = = = Generamos espacio latente = = =
         self.latent_idx = len(layer_configuration) - 1
 
-        self.layers.append([
-            # Mean
+        self.layers.append(
+            # Mean and Standard deviation
+            # Los generamos como 1 capa para facilitar las cuentas, luego lo dividiremos
             NeuronLayer(
-                layer_configuration[self.latent_idx - 1],
-                layer_configuration[self.latent_idx],
+                layer_configuration[-2],
+                layer_configuration[-1] * 2,
                 self.activation_function,
                 lower_weight,
                 upper_weight,
                 optimizer(*optimizer_args)
             ),
+        )
 
-            # Standard deviation
-            NeuronLayer(
-                layer_configuration[self.latent_idx - 1],
-                layer_configuration[self.latent_idx],
-                self.activation_function,
-                lower_weight,
-                upper_weight,
-                optimizer(*optimizer_args)
-            ),
-
-            # Sampling layer
+        # Generamos el Sampling Layer
+        self.layers.append(
             SamplingLayer()
-
-        ])
+        )
 
         #  = = = Generamos decoder = = =
         for i in reversed(range(len(layer_configuration) - 1)):
-            following = min(len(layer_configuration), i + 1)  # Caso: primera capa que no podes tener prev = -1
+            following = i + 1  # Caso: primera capa que no podes tener prev = -1
 
             # Generamos nueva capa con las dimensiones apropiadas
             self.layers.append(NeuronLayer(
@@ -117,18 +114,15 @@ class VAE:
     def forward_propagation(self, input_data):
         current = input_data
         self.input = input_data
+
         for idx, layer in enumerate(self.layers):
-            if idx != self.latent_idx:
-                current = layer.compute_activation(current)
-            else:
-                mean = layer[0].compute_activation(current)
-                std = layer[1].compute_activation(current)
-                current = layer[2].sampling(mean, std)
+            current = layer.compute_activation(current)
 
-        return current, mean, std
-
+        return current
     def backward_propagation(self, expected_output, generated_output):
         delta_w = []
+
+        # = = = = Calculamos el delta W de la primera capa del decoder = = = =
 
         prev_delta = (expected_output - generated_output) * self.derivative_activation_function(self.layers[-1].excitement)
         delta_w.append(prev_delta.reshape(-1, 1) @ np.transpose(self.layers[-2].output.reshape(-1, 1)))
@@ -136,39 +130,21 @@ class VAE:
         # = = = = Calculamos el delta W de las capas ocultas del decoder = = = =
         for idx in range(len(self.layers) - 2, self.latent_idx, -1):
             delta = np.dot(prev_delta, self.layers[idx + 1].weights) * self.derivative_activation_function(self.layers[idx].excitement)
-            if idx - 1 == self.latent_idx:
-                # se agrega [2] porque estamos en la capa de sampling layer
-                delta_w.append(delta.reshape(-1, 1) @ np.transpose(self.layers[idx - 1][2].output.reshape(-1, 1)))  # TODO: reemplazar magic number
-            else:
-                delta_w.append(delta.reshape(-1, 1) @ np.transpose(self.layers[idx - 1].output.reshape(-1, 1)))
+            delta_w.append(delta.reshape(-1, 1) @ np.transpose(self.layers[idx - 1].output.reshape(-1, 1)))
             prev_delta = delta
 
-        prev_delta = prev_delta.reshape(-1, 1).T
+        # = = = = Calculamos el delta W de la primera capa del encoder = = = =
 
-        #  = = = = Calculamos el delta W de la capa de espacio latente = = = =
-        # TODO: check
-        gradient_mean = np.dot(prev_delta, self.layers[self.latent_idx][0].weights.T)
-        gradient_std = np.dot(prev_delta, self.layers[self.latent_idx][1].weights.T)
+        # Reparametrization trick (que ni entiendo que pingo hace)
+        mean = np.dot(prev_delta, self.layers[self.latent_idx + 1].weights)
+        std = self.layers[self.latent_idx].epsilon.reshape(-1,) * mean
+        prev_delta = np.concatenate((mean, std), axis=0)
 
-        # Compute the gradients for the mean and std in the latent layer
-        delta_w_mean = gradient_mean.reshape(-1, 1) @ np.transpose(self.layers[self.latent_idx - 1].output.reshape(-1, 1))
-        delta_w_std = gradient_std.reshape(-1, 1) @ np.transpose(self.layers[self.latent_idx - 1].output.reshape(-1, 1))
+        delta_w.append(prev_delta.reshape(-1, 1) @ np.transpose(self.layers[self.latent_idx - 2].output.reshape(-1, 1)))
 
-        delta_w.append([delta_w_mean, delta_w_std])
-
-        #  = = = = Calculamos el delta W de las capas ocultas del encoder = = = =
-        # TODO: Check lo de la suma
-        # para la capa de sigma y la capa de mu
-        delta = (
-                np.dot(gradient_mean, self.layers[self.latent_idx][0].weights) * self.derivative_activation_function(self.layers[self.latent_idx - 1].excitement)
-                + np.dot(gradient_std, self.layers[self.latent_idx][1].weights) * self.derivative_activation_function(self.layers[self.latent_idx - 1].excitement)
-        )
-
-        delta_w.append(delta.reshape(-1, 1) @ np.transpose(self.layers[self.latent_idx-2].output.reshape(-1, 1)))
-        prev_delta = delta
-
+        # = = = = Calculamos el delta W de las capas ocultas del encoder = = = =
         for idx in range(self.latent_idx - 2, 0, -1):
-            delta = np.dot(prev_delta, self.layers[idx + 1].weights) * self.derivative_activation_function(self.layers[idx].excitement)
+            delta =  np.dot(prev_delta, self.layers[idx + 1].weights) * self.derivative_activation_function(self.layers[idx].excitement)
             delta_w.append(delta.reshape(-1, 1) @ np.transpose(self.layers[idx - 1].output.reshape(-1, 1)))
             prev_delta = delta
 
@@ -182,11 +158,8 @@ class VAE:
 
     def update_all_weights(self, delta_w):
         for idx, layer in enumerate(self.layers):
-            if idx == self.latent_idx:
-                layer[0].update_weights(delta_w[idx][0])
-                layer[1].update_weights(delta_w[idx][1])
-            else:
-                layer.update_weights(delta_w[idx])
+            if idx != self.latent_idx:
+                layer.update_weights(delta_w.pop(0))
 
     def train(self, limit, train_data):
         i = 0
@@ -195,11 +168,11 @@ class VAE:
             error = 0
 
             for elem in train_data:
-                result, mean, std = self.forward_propagation(elem)
+                result = self.forward_propagation(elem)
                 delta_w = self.backward_propagation(elem, result)
                 self.update_all_weights(delta_w)
 
-                error += total_loss(mean, std, result, elem)
+                error += total_loss(self.layers[self.latent_idx].mean, self.layers[self.latent_idx].std, result, elem)
 
             if error < min_error:
                 min_error = error
@@ -215,7 +188,7 @@ class VAE:
         total_incorrect = 0
 
         for a, b in zip(input_data, expected_output):
-            result, mean, std = self.forward_propagation(a)
+            result = self.forward_propagation(a)
 
             incorrect = count_error(result, b)
             total_incorrect_pixels += incorrect
