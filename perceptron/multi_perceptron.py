@@ -112,9 +112,9 @@ class MultiPerceptron:
         lower_weight = - upper_weight
 
         self.layers: [NeuronLayer] = []
-        for i in range(len(layer_configuration)):
+        for i in range(1, len(layer_configuration)):
 
-            prev = max(0, i-1)      # Caso: primera capa que no podes tener prev = -1
+            prev = i-1      # Caso: primera capa que no podes tener prev = -1
 
             # Generamos nueva capa con las dimensiones apropiadas
             self.layers.append(NeuronLayer(
