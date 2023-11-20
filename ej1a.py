@@ -7,6 +7,9 @@ from perceptron.optimizers import ADAM, Momentum
 from training_data.font import *
 import plotly.graph_objects as go
 import numpy as np
+import plotly.express as px
+import pandas as pd
+
 
 
 def compare_architectures():
@@ -57,6 +60,7 @@ def compare_architectures():
     )
 
     fig.show()
+
 
 def compare_optimizers():
     optimizers = [ADAM, Momentum]
@@ -116,6 +120,36 @@ def compare_optimizers():
 
     fig.show()
 
+
+def mse_for_architecture(architecture, iterations):
+    optimizer = ADAM
+    optimizer_args = [
+        config_json["optimizer"]["alpha"],
+        config_json["optimizer"]["beta1"],
+        config_json["optimizer"]["beta2"],
+        config_json["optimizer"]["epsilon"]
+    ]
+    metrics = {"mse": []}
+    autoencoder = MultiPerceptron(
+        architecture,
+        partial(sigmoid, config_json["activation_function_beta"]),
+        partial(sigmoid_derivative, config_json["activation_function_beta"]),
+        optimizer,
+        optimizer_args
+    )
+    for i in range(iterations):
+        error = autoencoder.train(1, fonts, fonts, len(fonts))
+        metrics["mse"].append(error)
+
+    errors = metrics.get("mse", [])
+    iterations = list(range(1, len(errors) + 1))
+
+    fig = px.scatter(x=iterations, y=errors, labels={'x': 'Iterations', 'y': 'MSE'},
+                     title=f'MSE Every Iteration for Architecture {str(architecture)}')
+
+    fig.show()
+
+
 if __name__ == "__main__":
     with open("ej1a_config.json", "r") as f:
         config_json = json.load(f)
@@ -173,3 +207,6 @@ if __name__ == "__main__":
 
     if config_json["compare_optimizers"]:
         compare_optimizers()
+
+    if config_json["mse_for_architecture"]:
+        mse_for_architecture(config_json["architecture"], config_json["mse_iterations"])

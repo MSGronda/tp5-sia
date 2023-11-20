@@ -17,12 +17,18 @@
   "activation_function_beta": 1,
   "batch_size": -1,
   "epochs": 1,
+
   "compare_architectures": false,
   "architectures": [[35, 2, 35], [35, 15, 2, 15, 35], [35, 20, 10, 2, 10, 20, 35], [35, 25, 15, 5, 2, 5, 15, 25, 35 ]],
   "runs": 10,
   "architecture_epochs": 1500,
-  "compare_optimizers": true,
+
+  "compare_optimizers": false,
   "optimizer_runs": 10,
   "optimizer_architecture": [35, 25, 15, 5, 2, 5, 15, 25, 35 ],
-  "optimizer_limit": 3000
+  "optimizer_limit": 3000,
+
+  "mse_for_architecture": true,
+  "architecture": [35, 64, 64, 64, 64, 32, 2, 32, 64, 64, 64, 64, 35],
+  "mse_iterations": 1500
 }
