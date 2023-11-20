@@ -148,9 +148,10 @@ class VAE:
             delta_w.append(delta.reshape(-1, 1) @ np.transpose(self.layers[idx - 1].output.reshape(-1, 1)))
             prev_delta = delta
 
-        #  = = = = Calculamos el delta W de la capa inicial = = = =
-        delta = np.dot(prev_delta, self.layers[1].weights) * self.derivative_activation_function(self.layers[0].excitement)
-        delta_w.append(delta.reshape(-1, 1) @ np.transpose(self.input.reshape(-1, 1)))
+        if len(delta_w) < len(self.layers) - 1:
+            #  = = = = Calculamos el delta W de la capa inicial = = = =
+            delta = np.dot(prev_delta, self.layers[1].weights) * self.derivative_activation_function(self.layers[0].excitement)
+            delta_w.append(delta.reshape(-1, 1) @ np.transpose(self.input.reshape(-1, 1)))
 
         delta_w.reverse()
 
@@ -160,6 +161,18 @@ class VAE:
         for idx, layer in enumerate(self.layers):
             if idx != self.latent_idx:
                 layer.update_weights(delta_w.pop(0))
+    def encode(self, data):
+        current = data
+        self.input = data
+        for i in range(self.latent_idx):
+            current = self.layers[i].compute_activation(current)
+        return current
+
+    def decode(self, z):
+        current = z
+        for i in range(self.latent_idx, len(self.layers)):
+            current = self.layers[i].compute_activation(current)
+        return current
 
     def train(self, limit, train_data):
         i = 0
@@ -178,7 +191,7 @@ class VAE:
                 min_error = error
 
             if i % 200 == 0:
-                print(f"Error {i}: {min_error}")
+                print(f"Epoch: {i}, Min error: {min_error}")
 
             i += 1
         return min_error
@@ -215,13 +228,5 @@ class VAE:
         print(f"Success rate: { (len(input_data) - total_incorrect) / len(input_data)}")
 
         return total_incorrect
-
-
-
-vae = VAE([35, 30, 25, 20, 15, 10, 5, 2], partial(sigmoid, 1), partial(sigmoid_derivative, 1), ADAM, [0.001, 0.9, 0.999, 1e-8])
-
-vae.train(10000, fonts)
-vae.test(fonts, fonts)
-
 
 

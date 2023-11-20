@@ -1,0 +1,13 @@
+{
+    "seed": 2,
+    "layer_config": [550, 100, 50, 1],
+    "optimizer": {
+        "type": "adam",
+        "alpha": 0.001,
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "epsilon": 1e-8
+    },
+    "activation_function_beta": 1,
+    "epochs": 3000
+}
