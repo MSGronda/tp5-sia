@@ -1,6 +1,9 @@
 import json
 import time
 from functools import partial
+
+from matplotlib import pyplot as plt
+
 from perceptron.functions import *
 from perceptron.multi_perceptron import *
 from perceptron.optimizers import ADAM, Momentum
@@ -149,6 +152,22 @@ def mse_for_architecture(architecture, iterations):
 
     fig.show()
 
+def create_new_letter(autoencoder, start_letter, end_letter, steps):
+
+    z1 = autoencoder.encode(start_letter)
+    z2 = autoencoder.encode(end_letter)
+
+    dif = z1 - z2
+
+    for step in range(steps + 1):
+        new_letter = autoencoder.decode(z2 + (step/steps) * dif)
+
+        # Mostramos graficos
+        matrix = new_letter.reshape(7, 5)
+        plt.imshow(matrix, cmap='Blues', interpolation='nearest')
+        plt.colorbar()
+        plt.show()
+
 
 def generate_latent_space(autoencoder):
     metrics = {}
@@ -228,9 +247,10 @@ if __name__ == "__main__":
     print("\n- = - = - FINISHED - = - = -\n")
     print(f"Min error (MSE): {min_error}")
     print(f"Time taken: {t2-t1} s")
-    print("\n- = - = - RUNNING TESTS - = - = -\n")
 
-    autoencoder.test(fonts, fonts)
+    if config_json["test"]:
+        print("\n- = - = - RUNNING TESTS - = - = -\n")
+        autoencoder.test(fonts, fonts)
 
     generate_latent_space(autoencoder)
 
@@ -242,3 +262,6 @@ if __name__ == "__main__":
 
     if config_json["mse_for_architecture"]:
         mse_for_architecture(config_json["architecture"], config_json["mse_iterations"])
+
+    if config_json["create_new_letter"]:
+        create_new_letter(autoencoder, fonts[config_json["start_letter_idx"]], fonts[config_json["end_letter_idx"]], config_json["steps"])
