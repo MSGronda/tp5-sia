@@ -1,4 +1,5 @@
 import copy
+import math
 from multiprocessing.pool import ThreadPool
 import numpy as np
 import random
@@ -272,3 +273,16 @@ class MultiPerceptron:
         for layer in self.layers:
             weights.append(copy.deepcopy(layer.weights))
         return weights
+
+    def encode(self, data):
+        current = data
+        self.input = data
+        for i in range(math.floor(len(self.layers) / 2)):
+            current = self.layers[i].compute_activation(current)
+        return current
+
+    def decode(self, z):
+        current = z
+        for i in range(math.ceil(len(self.layers) / 2), len(self.layers)):
+            current = self.layers[i].compute_activation(current)
+        return current
