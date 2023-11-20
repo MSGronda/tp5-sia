@@ -150,6 +150,36 @@ def mse_for_architecture(architecture, iterations):
     fig.show()
 
 
+def generate_latent_space(autoencoder):
+    metrics = {}
+    symbols = ["`", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t",
+               "u", "v", "w", "x", "y", "z", "{", "|", "}", "~", "DEL"]
+
+    for i in range(len(fonts)):
+        metrics[symbols[i]] = []
+        latent_space = autoencoder.encode(fonts[i])
+        print(latent_space)
+        metrics[symbols[i]] = latent_space.tolist()
+
+    # Extract keys and coordinates
+    keys = list(metrics.keys())
+    coordinates = list(metrics.values())
+
+    # Create a scatter plot
+    plt.scatter(*zip(*coordinates), marker='o')
+
+    # Annotate each point with its key
+    for i, key in enumerate(keys):
+        plt.annotate(key, (coordinates[i][0], coordinates[i][1]), textcoords="offset points", xytext=(0, 5),
+                     ha='center')
+
+    # Set the title
+    plt.title('Latent Space')
+
+    # Show the plot
+    plt.show()
+
+
 if __name__ == "__main__":
     with open("ej1a_config.json", "r") as f:
         config_json = json.load(f)
@@ -201,6 +231,8 @@ if __name__ == "__main__":
     print("\n- = - = - RUNNING TESTS - = - = -\n")
 
     autoencoder.test(fonts, fonts)
+
+    generate_latent_space(autoencoder)
 
     if config_json["compare_architectures"]:
         compare_architectures()
