@@ -1,5 +1,5 @@
 {
-    "seed": 2,
+    "seed": 3,
     "layer_config": [550, 100, 50, 1],
     "optimizer": {
         "type": "adam",
@@ -8,7 +8,18 @@
         "beta2": 0.999,
         "epsilon": 1e-8
     },
-    "activation_function_beta": 1,
-    "epochs": 3000
+    "activation_function_beta": 0.5,
+    "epochs": 3000,
+
+    "graph_latent_space": true,
+
+    "draw_outputs": false,
+
+    "graph_loss": true,
+
+    "generate_new_emoji": true,
+    "start_idx": 3,
+    "end_idx": 5,
+    "steps": 5
 }
 
