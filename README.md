@@ -1,4 +1,8 @@
-# tp5-sia
+# Trabajo Práctico 5 - SIA
+
+## Requisitos:
+1) Python 3
+2) Pip 3
 
 
 ## Para instalar dependencias
@@ -6,28 +10,23 @@
 > pip install -r requirements.txt
 ```
 
-## CONFIGURACION EJERCICIO 1b
+## Configuración General
 
-seed: numero positivo, es la semilla para la generacion de valores aleatorios
-layer_config: Define la arquitectura de red, pasar un arreglo que determine cantidad
-de neuronas en capas ocultas y superficiales, la primera capa y la ultima deben tener 35 para que matcheen con los inputs y se recomienda poner 2 para el espacio latente.
-ej: [35,23,2,23,35]
+| Campo                     | Descripción                                                                                                                                                                                                                                       | Valores aceptados                                                            |  
+|---------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| seed                      | Permite especificar el numero inicial usado al generar los valores aleatorios.                                                                                                                                                                    | Debe entero positivo. Tambien se puede usar -1 si no se quiere usar un seed. |
+| layer_config              | Define la arquitectura de red, pasar un arreglo que determine cantidad de neuronas en capas ocultas y superficiales, la primera capa y la ultima deben tener 35 para que matcheen con los inputs y se recomienda poner 2 para el espacio latente. | Arreglo de Int.                                                              |
+| optimizer.type            | Adam o Momentum.                                                                                                                                                                                                                                  | Numero de punto flotante entre 0 y 1.                                        |
+| optimizer.alpha           | Valor de alpha. Poner en el caso que se use ADAM.                                                                                                                                                                                                 | Numero de punto flotante entre 0 y 1.                                        | 
+| optimizer.beta1           | Valor de beta1. Poner en el caso que se use ADAM.                                                                                                                                                                                                 | Numero de punto flotante entre 0 y 1.                                        | 
+| optimizer.beta2           | Valor de beta2. Poner en el caso que se use ADAM.                                                                                                                                                                                                 | Numero de punto flotante entre 0 y 1.                                        | 
+| optimizer.epsilon         | Valor de epsilon. Poner en el caso que se use ADAM.                                                                                                                                                                                               | Numero de punto flotante entre 0 y 1.                                        | 
+| optimizer.learning_rate   | Valor del learning rate. Poner en el caso que se use Momentum.                                                                                                                                                                                    | Numero de punto flotante entre 0 y 1.                                        |
+| epochs                    | Maxima cantidad de iteraciones al entrenar.                                                                                                                                                                                                       | Numero entero mayor a 0.                                                     | 
+| activation_function_beta  | Valor de beta en funcion sigmoid.                                                                                                                                                                                                                 | Numero flotante positivo.                                                    | 
 
-Optimizer: propiedad type: adam o momentum
-    si se elige adam aclarar
-        a) alpha
-        b) beta1
-        c) beta2
-        d) epsilon
-    si se elige momentum aclarar
-        a) learning_rate
-
-activation_function_beta -> parametro beta de las funciones sigmodeas
-
-batch_size: Tamanio de batch de entrenamiento, dejar en -1 para que se use todo el conjunto en un batch
-
-epochs: Cantidad de epocas para entrenar.
-strategy
+## Configuración Ejercicio 1b
+- strategy
 
 1-Si se opta por: "bit_fliping_with_n"
     Aclarar

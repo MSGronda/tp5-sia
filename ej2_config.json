@@ -9,17 +9,15 @@
         "epsilon": 1e-8
     },
     "activation_function_beta": 0.5,
-    "epochs": 3000,
+    "epochs": 200,
 
-    "graph_latent_space": true,
+    "graph_latent_space": false,
 
     "draw_outputs": false,
 
-    "graph_loss": true,
+    "graph_loss": false,
 
     "generate_new_emoji": true,
-    "start_idx": 3,
-    "end_idx": 5,
-    "steps": 5
+    "steps": 6
 }
 

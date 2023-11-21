@@ -2,7 +2,7 @@ import json
 import random
 from functools import partial
 import numpy as np
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, image as mpimg
 from perceptron.functions import sigmoid, sigmoid_derivative
 from perceptron.optimizers import ADAM, Momentum
 from perceptron.vae import VAE
@@ -70,15 +70,77 @@ def graph_loss(vae):
                       yaxis=dict(title='Loss'))
     fig.show()
 
-def generate_new_emoji(vae, emojis, start_idx, end_idx, total_steps):
-    z1 = vae.encode(emojis[start_idx])
-    z2 = vae.encode(emojis[end_idx])
+def save_emoji(emoji, i, j):
+    matrix = emoji.reshape(25, 22)
+    plt.imshow(matrix, cmap='Blues', interpolation='nearest')
+    plt.savefig(f"./results/images/{i}-{j}.png", bbox_inches='tight', pad_inches=0)
+    plt.clf()
 
-    dif = z1 - z2
+def add_noise(emoji):
+    r = np.random.uniform(0, 0.15, size=emoji.shape)
+    for i in range(len(emoji)):
+        if emoji[i] > 0.15:
+            emoji[i] += r[i]
 
-    for step in range(total_steps + 1):
-        new = vae.decode(z2 + (step/total_steps) * dif)
-        draw_emoji(new)
+    return emoji
+
+def generate_new_emoji(vae, emojis, total_steps):
+
+    mean = []
+    std = []
+    for emoji in emojis:
+        m, s = vae.encode(emoji)
+        mean.append(m)
+        std.append(s)
+
+    mean = np.array(mean)
+    std = np.array(std)
+
+    min_mean = np.min(mean)
+    max_mean = np.max(mean)
+
+    min_std = np.min(std)
+    max_std = np.max(std)
+
+    mean_values = [min_mean + (step / total_steps) * (max_mean - min_mean) for step in range(total_steps + 1)]
+    std_values = [min_std + (step / total_steps) * (max_std - min_std) for step in range(total_steps + 1)]
+
+
+    for i, m in enumerate(mean_values):
+        for j, s in enumerate(std_values):
+            new_emoji = vae.decode(np.array([m,s]))
+            save_emoji(new_emoji, i, j)
+
+    # Define the number of rows and columns in the grid
+    num_rows, num_cols = total_steps + 1, total_steps + 1
+
+    # Create a subplot grid
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(2*num_rows, 2*num_cols))
+
+    # Loop through each position in the grid
+    for i in range(num_rows):
+        for j in range(num_cols):
+            # Construct the filename based on i and j values
+            filename = f"./results/images/{i}-{j}.png"
+
+            # Load the image using matplotlib.image
+            img = mpimg.imread(filename)
+
+            # Display the image in the corresponding subplot
+            axes[i, j].imshow(img)
+
+            # Hide axes ticks and labels for better visualization
+            axes[i, j].set_xticks([])
+            axes[i, j].set_yticks([])
+            axes[i, j].set_xticklabels([])
+            axes[i, j].set_yticklabels([])
+
+    # Adjust layout for better spacing
+    plt.tight_layout()
+
+    # Show the grid of images
+    plt.show()
+
 
 
 if __name__ == "__main__":
@@ -127,7 +189,7 @@ if __name__ == "__main__":
         graph_loss(vae)
 
     if config_json["generate_new_emoji"]:
-        generate_new_emoji(vae, emojis, config_json["start_idx"], config_json["end_idx"], config_json["steps"])
+        generate_new_emoji(vae, emojis, config_json["steps"])
 
 
 
